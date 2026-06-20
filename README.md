@@ -1,3 +1,12 @@
+---
+title: City Route Optimizer
+emoji: 🗺️
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # City Route Optimizer 🗺️
 
 A real-time ride-sharing / delivery route optimizer backend built with FastAPI. This project demonstrates core data structures and algorithms in a production-like environment.
