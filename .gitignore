@@ -6,3 +6,13 @@ env/
 venv/
 .venv/
 .env
+
+# Downloaded OSM data (60MB+ — auto-downloaded on first run)
+backend/data/
+
+# osmnx HTTP cache
+backend/cache/
+
+# Ad-hoc test scripts
+test_api.py
+test_stress.py

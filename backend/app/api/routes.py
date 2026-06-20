@@ -8,16 +8,10 @@ from app.core.cache import LRUCache
 router = APIRouter()
 
 # --- Shared Global State ---
-# In a real app, these would be connected to a database.
-# For now, we instantiate them globally so they persist across API requests.
+# The graph is populated at startup by main.py's lifespan handler
+# with real Chennai OSM data. Routes read from this shared instance.
 city_graph = Graph()
 route_cache = LRUCache(capacity=100)
-
-# Let's populate the graph with our test city data so we have something to route!
-city_graph.add_edge("A", "B", 1.0)
-city_graph.add_edge("B", "C", 2.0)
-city_graph.add_edge("A", "D", 4.0)
-city_graph.add_edge("D", "C", 5.0)
 
 # Pydantic model to validate incoming JSON requests
 class RouteRequest(BaseModel):
