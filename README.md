@@ -37,6 +37,8 @@ A real-time ride-sharing / delivery route optimizer backend built with FastAPI. 
 | `GET` | `/api/drivers/nearest?lat=X&lng=Y` | Find nearest available driver |
 | `POST` | `/api/orders` | Create order & auto-assign nearest driver |
 | `GET` | `/api/orders/{order_id}` | Check order status, assigned driver & route |
+| `GET` | `/api/cache/stats` | View LRU cache hit rate, size, and capacity |
+| `DELETE` | `/api/cache` | Clear the LRU route cache |
 
 ## 🏗️ Architecture
 
