@@ -126,7 +126,20 @@ def assign_next_order() -> Dict[str, Any]:
     driver_node = find_nearest_graph_node(driver["lat"], driver["lng"])
     pickup_node = find_nearest_graph_node(order.pickup_lat, order.pickup_lng)
 
-    path, route_dist = find_shortest_path(city_graph, driver_node, pickup_node)
+    # 1. Check the Cache first!
+    from app.main import route_cache
+    key = (driver_node, pickup_node)
+    cached_result = route_cache.get(key)
+    
+    if cached_result:
+        print("[Dispatcher] CACHE HIT")
+        path, route_dist = cached_result["path"], cached_result["distance"]
+    else:
+        print("[Dispatcher] CACHE MISS")
+        path, route_dist = find_shortest_path(city_graph, driver_node, pickup_node)
+        if path is not None:
+            # Store the result in the Cache for next time
+            route_cache.put(key, {"path": path, "distance": route_dist})
 
     if path is not None:
         order.route_path = path

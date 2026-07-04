@@ -1,15 +1,18 @@
 import threading
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api.routes import router as api_router, city_graph, route_cache
+from app.api.routes import router as api_router, city_graph
 from app.api.driver_routes import router as driver_router
 from app.api.order_routes import router as order_router
 from app.utils.osm import load_chennai_graph
 from app.data.seed_drivers import seed as seed_drivers
+from app.core.cache import LRUCache
 
 # Track whether the graph has finished loading
 graph_ready = threading.Event()
 
+# Create a single global RouteCache instance
+route_cache = LRUCache(capacity=100)
 
 def _load_graph_background():
     """Heavy graph loading runs in a background thread so the port opens immediately."""
