@@ -1,6 +1,5 @@
 import os
 import random
-import sys
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -8,9 +7,19 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 import joblib
 
-# Ensure we can import from app.core
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-from backend.app.core.traffic import get_traffic_factor
+from app.core.traffic import get_traffic_factor
+
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "eta_model.joblib")
+
+FEATURES = [
+    "distance_meters",
+    "hour_of_day",
+    "day_of_week",
+    "road_type_encoded",
+    "avg_traffic_factor",
+    "num_path_nodes",
+    "area_density_score"
+]
 
 def generate_data(num_samples=2000):
     data = []
@@ -74,45 +83,44 @@ def generate_data(num_samples=2000):
         
     return pd.DataFrame(data)
 
-def main():
-    print("Generating synthetic dataset...")
+def train_and_save(out_path: str = MODEL_PATH) -> None:
+    """
+    Generate synthetic data, train a GradientBoostingRegressor, and save it to disk.
+    Callable from main.py on startup or from the CLI.
+    """
+    print("[ML] Generating synthetic dataset...")
     df = generate_data(2000)
-    
-    features = [
-        "distance_meters", 
-        "hour_of_day", 
-        "day_of_week", 
-        "road_type_encoded", 
-        "avg_traffic_factor", 
-        "num_path_nodes", 
-        "area_density_score"
-    ]
-    
-    X = df[features]
+
+    X = df[FEATURES]
     y = df["eta_minutes"]
-    
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    print("Training GradientBoostingRegressor...")
+
+    print("[ML] Training GradientBoostingRegressor...")
     model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, max_depth=4, random_state=42)
     model.fit(X_train, y_train)
-    
+
     predictions = model.predict(X_test)
-    rmse = np.sqrt(mean_squared_error(y_test, predictions))
-    r2 = r2_score(y_test, predictions)
-    
-    print("\n--- Model Performance ---")
-    print(f"R² Score: {r2:.4f}")
-    print(f"RMSE:     {rmse:.2f} minutes")
-    
-    print("\n--- Feature Importances ---")
-    importances = model.feature_importances_
-    for name, imp in sorted(zip(features, importances), key=lambda x: x[1], reverse=True):
-        print(f"{name:20}: {imp:.4f}")
-        
-    out_path = os.path.join(os.path.dirname(__file__), "eta_model.joblib")
+    rmse = float(np.sqrt(mean_squared_error(y_test, predictions)))
+    r2 = float(r2_score(y_test, predictions))
+
+    print("[ML] --- Model Performance ---")
+    print(f"[ML] R2 Score : {r2:.4f}")
+    print(f"[ML] RMSE     : {rmse:.2f} minutes")
+
+    print("[ML] --- Feature Importances ---")
+    for name, imp in sorted(zip(FEATURES, model.feature_importances_), key=lambda x: x[1], reverse=True):
+        print(f"[ML]   {name:20}: {imp:.4f}")
+
     joblib.dump(model, out_path)
-    print(f"\nModel saved to {out_path}")
+    print(f"[ML] Model saved to {out_path}")
+    return model
+
+
+def main():
+    """CLI entry point — run this script directly to retrain from scratch."""
+    train_and_save()
+
 
 if __name__ == "__main__":
     main()

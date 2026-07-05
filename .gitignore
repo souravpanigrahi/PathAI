@@ -20,5 +20,5 @@ test_traffic.py
 test_timing.py
 test_cache.py
 
-# Trained ML model artifact (regenerated via train_eta.py)
+# Trained ML model artifact (auto-generated on HF cold start)
 backend/app/ml/eta_model.joblib
