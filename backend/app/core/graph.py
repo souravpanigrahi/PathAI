@@ -11,18 +11,18 @@ class Graph:
         if node_id not in self.nodes:
             self.nodes[node_id] = {}
 
-    def add_edge(self, from_node: str, to_node: str, weight: float, bidirectional: bool = True):
-        """Adds an edge (road) between two nodes with a specific weight (distance/time)."""
+    def add_edge(self, from_node: str, to_node: str, weight: float, road_type: str = "unknown", bidirectional: bool = True):
+        """Adds an edge (road) between two nodes with a specific weight and road type."""
         # Ensure both nodes exist in the graph
         self.add_node(from_node)
         self.add_node(to_node)
         
         # Add the connection
-        self.nodes[from_node][to_node] = weight
+        self.nodes[from_node][to_node] = {"weight": weight, "road_type": road_type}
         
         # For city routing, roads are often two-way, but sometimes one-way.
         if bidirectional:
-            self.nodes[to_node][from_node] = weight
+            self.nodes[to_node][from_node] = {"weight": weight, "road_type": road_type}
 
     def get_neighbors(self, node_id: str) -> dict:
         """Returns all connected nodes and their weights for a given node."""

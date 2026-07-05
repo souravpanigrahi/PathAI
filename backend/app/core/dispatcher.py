@@ -35,6 +35,9 @@ class Order(BaseModel):
     # Route from driver's location to pickup (populated on assignment)
     route_path: Optional[List[str]] = None
     route_distance_meters: Optional[float] = None
+    traffic_context: Optional[dict] = None
+    eta_minutes: Optional[float] = None
+    area_density_score: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------
@@ -72,8 +75,8 @@ def create_order(
     orders_db[order.order_id] = order
     order_queue.append(order.order_id)
 
-    print(f"[Dispatcher] Created order {order.order_id[:8]}… "
-          f"pickup=({pickup_lat}, {pickup_lng}) → "
+    print(f"[Dispatcher] Created order {order.order_id[:8]}... "
+          f"pickup=({pickup_lat}, {pickup_lng}) -> "
           f"delivery=({delivery_lat}, {delivery_lng})")
 
     return order.order_id
@@ -86,9 +89,9 @@ def assign_next_order() -> Dict[str, Any]:
     route from the driver's location to the pickup point.
 
     Returns a dict summarising what happened:
-        - "assigned"            → order matched to a driver
-        - "no_drivers_available"→ no available drivers; order re-queued
-        - "queue_empty"         → nothing to assign
+        - "assigned"            -> order matched to a driver
+        - "no_drivers_available"-> no available drivers; order re-queued
+        - "queue_empty"         -> nothing to assign
     """
     # --- Nothing in the queue ---
     if not order_queue:
@@ -104,7 +107,7 @@ def assign_next_order() -> Dict[str, Any]:
         # No drivers available — put the order back at the FRONT so it
         # stays first in line (don't lose it).
         order_queue.appendleft(order_id)
-        print(f"[Dispatcher] No available drivers — order {order_id[:8]}… re-queued.")
+        print(f"[Dispatcher] No available drivers - order {order_id[:8]}... re-queued.")
         return {
             "result": "no_drivers_available",
             "order_id": order_id,
@@ -122,7 +125,7 @@ def assign_next_order() -> Dict[str, Any]:
     order.status = "assigned"
     order.assigned_driver_id = driver["driver_id"]
 
-    # --- Compute route: driver location → pickup ---
+    # --- Compute route: driver location -> pickup ---
     driver_node = find_nearest_graph_node(driver["lat"], driver["lng"])
     pickup_node = find_nearest_graph_node(order.pickup_lat, order.pickup_lng)
 
@@ -133,27 +136,54 @@ def assign_next_order() -> Dict[str, Any]:
     
     if cached_result:
         print("[Dispatcher] CACHE HIT")
-        path, route_dist = cached_result["path"], cached_result["distance"]
+        path = cached_result["path"]
+        route_dist = cached_result["distance"]
+        traffic_context = cached_result.get("traffic_context")
     else:
         print("[Dispatcher] CACHE MISS")
-        path, route_dist = find_shortest_path(city_graph, driver_node, pickup_node)
+        path, base_dist, traffic_context = find_shortest_path(city_graph, driver_node, pickup_node)
         if path is not None:
+            # The "effective" distance is in traffic_context
+            route_dist = traffic_context["effective_distance_meters"]
             # Store the result in the Cache for next time
-            route_cache.put(key, {"path": path, "distance": route_dist})
+            route_cache.put(key, {"path": path, "distance": route_dist, "traffic_context": traffic_context})
+
+    from app.ml.eta_predictor import predict_eta, get_area_density
+    area_density = get_area_density(order.pickup_lat, order.pickup_lng)
+    eta_minutes = None
 
     if path is not None:
         order.route_path = path
         order.route_distance_meters = round(route_dist, 2)
-        print(f"[Dispatcher] Route: {len(path)} nodes, {route_dist:.0f} m")
+        order.traffic_context = traffic_context
+        order.area_density_score = area_density
+
+        # Compute ETA using the ML model
+        ctx = traffic_context or {}
+        num_nodes = len(path)
+        eta_minutes = predict_eta(
+            distance_meters=route_dist,
+            hour=ctx.get("current_hour", 12),
+            day_of_week=datetime.now().weekday(),
+            road_type="primary",  # conservative default for driver->pickup
+            avg_traffic_factor=ctx.get("avg_traffic_factor", 1.0),
+            num_path_nodes=num_nodes,
+            area_density_score=area_density
+        )
+        order.eta_minutes = eta_minutes
+        print(f"[Dispatcher] Route: {len(path)} nodes, {route_dist:.0f} m, ETA: {eta_minutes} min")
     else:
         order.route_path = None
         order.route_distance_meters = None
+        order.traffic_context = None
+        order.area_density_score = area_density
+        traffic_context = None
         print(f"[Dispatcher] Warning: no route found from driver to pickup.")
 
     orders_db[order_id] = order
 
-    print(f"[Dispatcher] Order {order_id[:8]}… assigned to "
-          f"driver {driver['driver_id']} ({driver['name']}) — "
+    print(f"[Dispatcher] Order {order_id[:8]}... assigned to "
+          f"driver {driver['driver_id']} ({driver['name']}) - "
           f"{distance_m:.0f} m away.")
 
     return {
@@ -163,6 +193,9 @@ def assign_next_order() -> Dict[str, Any]:
         "distance_meters": round(distance_m, 2),
         "route_path": order.route_path,
         "route_distance_meters": order.route_distance_meters,
+        "traffic_context": traffic_context,
+        "eta_minutes": eta_minutes,
+        "area_density_score": area_density
     }
 
 

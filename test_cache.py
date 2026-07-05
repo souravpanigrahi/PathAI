@@ -1,7 +1,7 @@
 import requests
 import time
 
-BASE = "http://127.0.0.1:8000"
+BASE = "https://souravpgbhai-city-route-optimizer.hf.space"
 
 print("Waiting for graph to load on local server...")
 while True:

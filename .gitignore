@@ -16,3 +16,9 @@ backend/cache/
 # Ad-hoc test scripts
 test_api.py
 test_stress.py
+test_traffic.py
+test_timing.py
+test_cache.py
+
+# Trained ML model artifact (regenerated via train_eta.py)
+backend/app/ml/eta_model.joblib

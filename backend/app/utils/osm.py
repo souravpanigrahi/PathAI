@@ -105,7 +105,12 @@ def load_chennai_graph() -> Graph:
     # preserve the original one-way / two-way semantics from OSM.
     for u, v, data in osm_graph.edges(data=True):
         weight = data.get("length", 0.0)
-        graph.add_edge(str(u), str(v), weight=float(weight), bidirectional=False)
+        # In osmnx, highway might be a list if multiple road types apply, take the first one
+        highway = data.get("highway", "unknown")
+        if isinstance(highway, list):
+            highway = highway[0]
+            
+        graph.add_edge(str(u), str(v), weight=float(weight), road_type=highway, bidirectional=False)
         edge_count += 1
 
     print(f"[OSM] Loaded {node_count} nodes and {edge_count} edges into Graph.")
